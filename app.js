@@ -34,34 +34,13 @@ app.get("/", (req, res) => {
     res.sendFile(__dirname + "/index.html");
 });
 
+// called when the submit button is pressed
 app.post("/getPlaceInfo", async (req, res) => {
-    let placeInfo = await getPlaceInfo(req.body.originPlace_id);
-    if (!placeInfo) {
-        res.send("Place details not found");
-        return;
-    }
-    // res.send("Place details found");
-    data = { address: placeInfo?.formatted_address };
-    placeInfo?.address_components.map((component) => {
-        console.log(component);
-        if (component.types.includes("postal_code")) {
-            data["zipCode"] = component.long_name;
-        }
-        if (component.types.includes("administrative_area_level_1")) {
-            data["state"] = component.long_name;
-        }
-    });
-
-    const newEntry = new Place(data);
-    newEntry.save(function (err) {
-        if (err) {
-            console.log(err);
-            res.status(400).send("Unable to save to database");
-            return;
-        }
-
-        res.send("Place saved to database");
-    });
+    let originPlaceInfo = await getPlaceInfo(req.body.originPlace_id);
+    let destinationPlaceInfo = await getPlaceInfo(req.body.destinationPlace_id);
+    saveData(originPlaceInfo) && saveData(destinationPlaceInfo)
+        ? res.send("Successfully saved data")
+        : res.send("Failed to save data");
 });
 
 // make request to google maps api
@@ -76,6 +55,33 @@ async function getPlaceInfo(placeId) {
     let response = await fetch(url);
     response = await response.json();
     return response.result;
+}
+
+// create database entries and save them
+function saveData(placeInfo) {
+    if (!placeInfo) {
+        res.send("Place details not found");
+        return;
+    }
+    // res.send("Place details found");
+    data = { address: placeInfo?.formatted_address };
+    placeInfo?.address_components.map((component) => {
+        if (component.types.includes("postal_code")) {
+            data["zipCode"] = component.long_name;
+        }
+        if (component.types.includes("administrative_area_level_1")) {
+            data["state"] = component.long_name;
+        }
+    });
+
+    let newEntry = new Place(data);
+    newEntry.save((err) => {
+        if (err) {
+            console.log(err);
+            return false;
+        }
+    });
+    return true;
 }
 
 app.listen(port, () => {
