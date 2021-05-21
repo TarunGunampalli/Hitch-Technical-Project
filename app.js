@@ -63,7 +63,7 @@ function saveData(placeInfo) {
         res.send("Place details not found");
         return;
     }
-    // res.send("Place details found");
+
     data = { address: placeInfo?.formatted_address };
     placeInfo?.address_components.map((component) => {
         if (component.types.includes("postal_code")) {
