@@ -38,6 +38,10 @@ app.get("/", (req, res) => {
 app.post("/getPlaceInfo", async (req, res) => {
     let originPlaceInfo = await getPlaceInfo(req.body.originPlace_id);
     let destinationPlaceInfo = await getPlaceInfo(req.body.destinationPlace_id);
+    if (!originPlaceInfo || !destinationPlaceInfo) {
+        res.send("Place details not found");
+        return;
+    }
     saveData(originPlaceInfo) && saveData(destinationPlaceInfo)
         ? res.send("Successfully saved data")
         : res.send("Failed to save data");
@@ -59,11 +63,6 @@ async function getPlaceInfo(placeId) {
 
 // create database entries and save them
 function saveData(placeInfo) {
-    if (!placeInfo) {
-        res.send("Place details not found");
-        return;
-    }
-
     data = { address: placeInfo?.formatted_address };
     placeInfo?.address_components.map((component) => {
         if (component.types.includes("postal_code")) {
