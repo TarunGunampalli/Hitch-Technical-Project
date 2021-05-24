@@ -23,9 +23,10 @@ mongoose.connect("mongodb://localhost:27017/hitch-test", {
 
 // scheme for places
 var placeSchema = new mongoose.Schema({
+    key: String,
     address: String,
     state: String,
-    zipCode: String, // ? Maybe String
+    zipCode: String,
 });
 var Place = mongoose.model("Place", placeSchema);
 
@@ -36,20 +37,22 @@ app.get("/", (req, res) => {
 
 // called when the submit button is pressed
 app.post("/getPlaceInfo", async (req, res) => {
-    let originPlaceInfo = await getPlaceInfo(req.body.originPlace_id);
-    let destinationPlaceInfo = await getPlaceInfo(req.body.destinationPlace_id);
+    const originPlaceInfo = await getPlaceInfo(req.body.originPlace_id);
+    const destinationPlaceInfo = await getPlaceInfo(
+        req.body.destinationPlace_id
+    );
     if (!originPlaceInfo || !destinationPlaceInfo) {
         res.send("Place details not found");
         return;
     }
-    saveData(originPlaceInfo) && saveData(destinationPlaceInfo)
-        ? res.send("Successfully saved data")
-        : res.send("Failed to save data");
+    saveData(originPlaceInfo, req.body.originPlace_id);
+    saveData(destinationPlaceInfo, req.body.destinationPlace_id);
+    res.send("Saved data");
 });
 
 // make request to google maps api
 async function getPlaceInfo(placeId) {
-    let url =
+    const url =
         "https://maps.googleapis.com/maps/api/place/details/json?" +
         new URLSearchParams({
             place_id: placeId,
@@ -62,25 +65,30 @@ async function getPlaceInfo(placeId) {
 }
 
 // create database entries and save them
-function saveData(placeInfo) {
-    data = { address: placeInfo?.formatted_address };
-    placeInfo?.address_components.map((component) => {
-        if (component.types.includes("postal_code")) {
-            data["zipCode"] = component.long_name;
-        }
-        if (component.types.includes("administrative_area_level_1")) {
-            data["state"] = component.long_name;
-        }
-    });
+// returns false if save failed
+function saveData(placeInfo, id) {
+    Place.findOne({ key: id }, (err, place) => {
+        if (err) console.log(err);
+        // only save new data if place doesn't exist in collection already
+        if (!place) {
+            var data = { key: id, address: placeInfo?.formatted_address };
+            placeInfo?.address_components.map((component) => {
+                if (component.types.includes("postal_code")) {
+                    data["zipCode"] = component.long_name;
+                }
+                if (component.types.includes("administrative_area_level_1")) {
+                    data["state"] = component.long_name;
+                }
+            });
 
-    let newEntry = new Place(data);
-    newEntry.save((err) => {
-        if (err) {
-            console.log(err);
-            return false;
+            const newEntry = new Place(data);
+            newEntry.save((err) => {
+                if (err) {
+                    console.log(err);
+                }
+            });
         }
     });
-    return true;
 }
 
 app.listen(port, () => {
